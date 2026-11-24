@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добавление задачи — ЕГЭ Математика</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #bgCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
+        }
+        .form-card {
+            background-color: rgba(33, 37, 41, 0.92) !important;
+            backdrop-filter: blur(6px);
+            border: 1px solid #495057;
+        }
+    </style>
+</head>
+<body class="bg-dark text-light min-vh-100 p-4 position-relative">
+
+    <canvas id="bgCanvas"></canvas>
+
+    <div class="container" style="max-width: 720px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>Добавить новую задачу</h2>
+            <div class="d-flex gap-2">
+                <a href="/bank" class="btn btn-outline-info">Банк заданий</a>
+                <a href="/" class="btn btn-outline-secondary">На главную</a>
+            </div>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" class="card form-card text-light p-4 shadow-lg"[cite: 1]>
+            <!-- Номер задания -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Номер задания (1–20)</label>
+                <input type="number" id="taskNumberInput" name="task_number" min="1" max="20" class="form-control bg-dark text-light border-secondary" placeholder="Введите номер от 1 до 20" required[cite: 1]>
+            </div>
+
+            <!-- Поле темы с подсказками datalist и автоподстановкой -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Тема задания</label>
+                <input type="text" id="topicInput" name="topic" list="topicsList" class="form-control bg-dark text-light border-secondary" placeholder="Выберите из предложенных или введите свою" required[cite: 1, 6]>
+                <datalist id="topicsList">
+                    <option value="Планиметрия">
+                    <option value="Векторы на плоскости">
+                    <option value="Стереометрия">
+                    <option value="Теория вероятностей (простые)">
+                    <option value="Теория вероятностей (сложные)">
+                    <option value="Случайные величины">
+                    <option value="Уравнения">
+                    <option value="Вычисления и преобразования">
+                    <option value="Производная и геометрический смысл">
+                    <option value="Прикладные задачи">
+                    <option value="Текстовые задачи на движение">
+                    <option value="Графики функций">
+                    <option value="Экономические задачи">
+                    <option value="Тригонометрические уравнения (Часть 2)">
+                    <option value="Стереометрия (Часть 2)">
+                    <option value="Показательные / Алгебраические неравенства (Часть 2)">
+                    <option value="Физическая / Прикладная оптимизация (Часть 2)">
+                    <option value="Планиметрия (Часть 2)">
+                    <option value="Уравнения и системы с параметром (Часть 2)">
+                    <option value="Числа и их свойства (Часть 2)">
+                </datalist>
+                <small class="text-muted">Тема подставляется автоматически при указании номера задания.</small>
+            </div>
+
+            <!-- Текст задачи -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Текст задачи</label>
+                <textarea name="text" class="form-control bg-dark text-light border-secondary" rows="3" required[cite: 1]></textarea>
+            </div>
+
+            <!-- Загрузка изображения + вставка по Ctrl+V -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">
+                    Изображение / Чертеж
+                    <small class="text-warning">(Обязательно для №12; опционально для №1, №3, №9, №17)</small>
+                </label>
+
+                <input type="file" name="image" id="imageInput" class="form-control bg-dark text-light border-secondary" accept="image/*"[cite: 1]>
+
+                <div id="pasteZone" class="border border-secondary rounded p-3 text-center my-2 text-muted" style="border-style: dashed !important; background-color: rgba(20, 20, 20, 0.6); cursor: pointer;">
+                    Нажмите <strong>Ctrl + V</strong> в любом месте страницы для вставки скриншота[cite: 1]
+                </div>
+
+                <div id="previewContainer" class="text-center d-none mt-2">
+                    <img id="imagePreview" src="#" alt="Предпросмотр" class="img-fluid rounded border border-light" style="max-height: 250px;">
+                    <button type="button" id="removeImgBtn" class="btn btn-sm btn-danger d-block mx-auto mt-2">Удалить картинку</button>
+                </div>
+            </div>
+
+            <!-- Правильный ответ -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Правильный ответ</label>
+                <input type="text" name="answer" class="form-control bg-dark text-light border-secondary" placeholder="Например: 4 или 0,25" required[cite: 1]>
+            </div>
+
+            <!-- Пояснение -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">Решение / Пояснение</label>
+                <textarea name="explanation" class="form-control bg-dark text-light border-secondary" rows="2" placeholder="Ход решения задачи..."[cite: 1]></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2 fs-5">Сохранить в базу данных</button>
+        </form>
+    </div>
+
+    <!-- Скрипт автоподстановки темы, вставки Ctrl+V и фона -->
+    <script>
+        // 1. Карта тем по номерам заданий 1-20
+        const defaultTopics = {
+            1: 'Планиметрия',
+            2: 'Векторы на плоскости',
+            3: 'Стереометрия',
+            4: 'Теория вероятностей (простые)',
+            5: 'Теория вероятностей (сложные)',
+            6: 'Случайные величины',
+            7: 'Уравнения',
+            8: 'Вычисления и преобразования',
+            9: 'Производная и геометрический смысл',
+            10: 'Прикладные задачи',
+            11: 'Текстовые задачи на движение',
+            12: 'Графики функций',
+            13: 'Экономические задачи',
+            14: 'Тригонометрические уравнения (Часть 2)',
+            15: 'Стереометрия (Часть 2)',
+            16: 'Показательные / Алгебраические неравенства (Часть 2)',
+            17: 'Физическая / Прикладная оптимизация (Часть 2)',
+            18: 'Планиметрия (Часть 2)',
+            19: 'Уравнения и системы с параметром (Часть 2)',
+            20: 'Числа и их свойства (Часть 2)'
+        };
+
+        const taskNumberInput = document.getElementById('taskNumberInput');
+        const topicInput = document.getElementById('topicInput');
+
+        // Автозаполнение темы при изменении номера
+        taskNumberInput.addEventListener('input', function() {
+            const num = parseInt(this.value, 10);
+            if (defaultTopics[num]) {
+                topicInput.value = defaultTopics[num];
+            }
+        });
+
+        // 2. Логика вставки картинки из буфера обмена (Ctrl + V)
+        const imageInput = document.getElementById('imageInput');
+        const previewContainer = document.getElementById('previewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+        const removeImgBtn = document.getElementById('removeImgBtn');
+
+        function showPreview(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imagePreview.src = e.target.result;
+                previewContainer.classList.remove('d-none');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        window.addEventListener('paste', function(e) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let item of items) {
+                if (item.type.indexOf('image') === 0) {
+                    const blob = item.getAsFile();
+                    const file = new File([blob], `pasted_task_${Date.now()}.png`, { type: blob.type });
+
+                    const dataTransfer = new DataTransfer();
+                    dataTransfer.items.add(file);
+                    imageInput.files = dataTransfer.files;
+
+                    showPreview(file);
+                    break;
+                }
+            }
+        });
+
+        imageInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                showPreview(this.files[0]);
+            }
+        });
+
+        removeImgBtn.addEventListener('click', function() {
+            imageInput.value = '';
+            previewContainer.classList.add('d-none');
+            imagePreview.src = '#';
+        });
+
+        // 3. Интерактивный Canvas-фон (белые точки + паутинка)
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const mouse = { x: null, y: null, radius: 140 };
+        window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        window.addEventListener('mouseleave', () => { mouse.x = null; mouse.y = null; });
+
+        class Particle {
+            constructor(id) {
+                this.id = id;
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.radius = Math.random() * 2 + 1.5;
+                this.vx = (Math.random() - 0.5) * 1;
+                this.vy = (Math.random() - 0.5) * 1;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+            }
+            update() {
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.draw();
+            }
+        }
+
+        const count = Math.floor((canvas.width * canvas.height) / 12000);
+        const particles = [];
+        for (let i = 0; i < count; i++) particles.push(new Particle(i));
+
+        function connect() {
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 100) {
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - dist/100) * 0.35})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+                if (mouse.x !== null && mouse.y !== null) {
+                    const dx = particles[i].x - mouse.x;
+                    const dy = particles[i].y - mouse.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < mouse.radius) {
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - dist/mouse.radius) * 0.7})`;
+                        ctx.lineWidth = 1.2;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(mouse.x, mouse.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function anim() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => p.update());
+            connect();
+            requestAnimationFrame(anim);
+        }
+        anim();
+    </script>
+</body>
+</html>

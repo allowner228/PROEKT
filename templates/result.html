@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Результаты тестирования — ЕГЭ Математика</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #bgCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
+        }
+        .table-custom {
+            background-color: rgba(33, 37, 41, 0.9) !important;
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body class="bg-dark text-light min-vh-100 p-4 position-relative">
+
+    <canvas id="bgCanvas"></canvas>
+
+    <div class="container" style="max-width: 900px; padding-top: 20px;">
+
+        <!-- Карточка итогового результата -->
+        <div class="card bg-dark text-light border-secondary p-4 mb-5 text-center shadow-lg" style="background-color: rgba(33, 37, 41, 0.9) !important; backdrop-filter: blur(4px);">
+            <h3 class="text-secondary mb-3">Ваш результат</h3>
+            <h1 class="display-3 fw-bold my-2">{{ score }} из {{ total }} <span class="fs-4 text-muted">баллов</span></h1>
+            <p class="fs-4 {% if percent >= 70 %}text-success{% elif percent >= 40 %}text-warning{% else %}text-danger{% endif %} mb-4">
+                Точность решения: {{ percent }}%
+            </p>
+            <div>
+                <a href="/" class="btn btn-primary btn-lg px-4">Вернуться на главную</a>
+            </div>
+        </div>
+
+        <h3 class="mb-4">Сводная таблица ответов</h3>
+
+        <!-- Таблица результатов со световой индикацией -->
+        <div class="table-responsive mb-5">
+            <table class="table table-dark table-hover border-secondary table-custom rounded align-middle">
+                <thead>
+                    <tr class="table-secondary text-light">
+                        <th scope="col" class="text-center" style="width: 80px;">№</th>
+                        <th scope="col">Тема задания</th>
+                        <th scope="col" class="text-center">Ваш ответ</th>
+                        <th scope="col" class="text-center">Правильный ответ</th>
+                        <th scope="col" class="text-center" style="width: 110px;">Статус</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for res in results %}
+                    <tr>
+                        <td class="text-center fw-bold">{{ res.task_number }} (№{{ res.orig_number }})</td>
+                        <td>{{ res.topic }}</td>
+                        <td class="text-center fw-bold {% if res.is_correct %}text-success{% else %}text-danger{% endif %}">
+                            {{ res.user_answer }}
+                        </td>
+                        <td class="text-center text-success fw-bold">{{ res.correct_answer }}</td>
+                        <td class="text-center">
+                            {% if res.is_correct %}
+                                <span class="badge bg-success p-2">Верно</span>
+                            {% else %}
+                                <span class="badge bg-danger p-2">Ошибка</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Подробный разбор каждого задания -->
+        <h3 class="mb-4">Подробный разбор решений</h3>
+
+        {% for res in results %}
+        <div class="card border-secondary mb-4 p-4 style-card {% if res.is_correct %}border-success{% else %}border-danger{% endif %}" style="background-color: rgba(33, 37, 41, 0.9) !important; backdrop-filter: blur(4px);">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="card-title text-primary m-0">Задание №{{ res.task_number }} — {{ res.topic }}</h5>
+                    {% if res.is_correct %}
+                        <span class="badge bg-success fs-6">1 / 1 балл</span>
+                    {% else %}
+                        <span class="badge bg-danger fs-6">0 / 1 балл</span>
+                    {% endif %}
+                </div>
+
+                <p class="card-text fs-5" style="white-space: pre-line;">{{ res.text }}</p>
+
+                {% if res.image_url and res.image_url.strip() %}
+                <div class="my-3 text-center">
+                    <img src="{{ res.image_url }}"
+                         alt=""
+                         class="img-fluid rounded border border-secondary"
+                         style="max-height: 300px;"
+                         onerror="this.parentElement.style.display='none';">
+                </div>
+                {% endif %}
+
+                <hr class="border-secondary my-3">
+
+                <div class="row text-center mb-3">
+                    <div class="col-md-6 mb-2">
+                        <div class="p-2 rounded border {% if res.is_correct %}border-success bg-success-subtle text-success{% else %}border-danger bg-danger-subtle text-danger{% endif %}">
+                            <strong>Ваш ответ:</strong> {{ res.user_answer }}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-2 rounded border border-success bg-success-subtle text-success">
+                            <strong>Правильный ответ:</strong> {{ res.correct_answer }}
+                        </div>
+                    </div>
+                </div>
+
+                {% if res.explanation %}
+                <div class="bg-secondary p-3 rounded text-light mt-3">
+                    <strong class="text-info d-block mb-1">Решение:</strong>
+                    <div style="white-space: pre-line;">{{ res.explanation }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+    </div>
+
+    <!-- Интерактивный анимированный фон -->
+    <script>
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const mouse = { x: null, y: null, radius: 150 };
+        window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        window.addEventListener('mouseleave', () => { mouse.x = null; mouse.y = null; });
+
+        class Particle {
+            constructor(id) {
+                this.id = id;
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.radius = Math.random() * 3 + 1.5;
+                this.vx = (Math.random() - 0.5) * 1.2;
+                this.vy = (Math.random() - 0.5) * 1.2;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                ctx.fill();
+            }
+            update() {
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.draw();
+            }
+        }
+
+        const particleCount = Math.floor((canvas.width * canvas.height) / 10000);
+        const particles = [];
+        for (let i = 0; i < particleCount; i++) particles.push(new Particle(i));
+
+        function connect() {
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 110) {
+                        const opacity = 1 - (distance / 110);
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.4})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+
+                if (mouse.x !== null && mouse.y !== null) {
+                    const mdx = particles[i].x - mouse.x;
+                    const mdy = particles[i].y - mouse.y;
+                    const mDistance = Math.sqrt(mdx * mdx + mdy * mdy);
+
+                    if (mDistance < mouse.radius) {
+                        const mOpacity = 1 - (mDistance / mouse.radius);
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${mOpacity * 0.75})`;
+                        ctx.lineWidth = 1.2;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(mouse.x, mouse.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => p.update());
+            connect();
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>

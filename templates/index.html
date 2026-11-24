@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>EGE Math | Интерактивная платформа</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #bg-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none; }
+        body { background-color: #0d0e12 !important; color: #e1e3e8; font-family: 'Segoe UI', system-ui, sans-serif; }
+        .card-dark { background-color: #16181e; border: 1px solid #2a2d37; border-radius: 12px; }
+        .text-muted-custom { color: #8b92a2; }
+        .btn-neon { background: #3b82f6; color: #fff; font-weight: 600; border: none; transition: 0.2s; }
+        .btn-neon:hover { background: #2563eb; color: #fff; transform: translateY(-2px); }
+        .badge-success-custom { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
+        .badge-danger-custom { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .table-dark-custom { color: #d1d5db; }
+
+        /* Стиль карточек тем на Графе Знаний */
+        .topic-node {
+            background: #111319;
+            border: 1px solid #2a2d37;
+            border-radius: 10px;
+            padding: 12px 16px;
+            transition: all 0.3s ease;
+        }
+        .topic-node:hover {
+            border-color: #3b82f6;
+            transform: translateY(-3px);
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.2);
+        }
+    </style>
+</head>
+<body class="py-4">
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="container" style="max-width: 1000px;">
+
+        <!-- Шапка -->
+        <a href="/bank" class="btn btn-outline-info btn-lg">📂 Банк заданий</a>
+        <div class="d-flex justify-content-between align-items-center mb-5 pb-3 border-bottom border-secondary border-opacity-25">
+            <div>
+                <h2 class="fw-bold m-0 text-white"><span class="text-primary">EGE</span>MATH</h2>
+                <p class="text-muted-custom m-0 small">Платформа с интерактивным графом знаний</p>
+            </div>
+            <span class="badge bg-dark border border-secondary text-light px-3 py-2 fs-6">2026 КИМ</span>
+        </div>
+
+        <!-- ФИШКА 1: Умный анализатор слабых мест -->
+        {% if weak_topics %}
+            <div class="card-dark p-4 mb-4 border-warning border-opacity-50 shadow-sm">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <div>
+                        <h5 class="fw-bold text-warning mb-1">🎯 Фокус внимания (Слабые места)</h5>
+                        <p class="text-muted-custom small mb-0">
+                            Анализатор заметил проседания в темах:
+                            {% for wt in weak_topics %}
+                                <strong class="text-white">{{ wt.topic }} ({{ wt.accuracy }}%)</strong>{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        </p>
+                    </div>
+                    <form action="/generate" method="POST" class="m-0">
+                        <input type="hidden" name="mode" value="weak_spots">
+                        <button type="submit" class="btn btn-warning fw-bold px-4">Экспресс-Тренировка (5 задач)</button>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Генератор + Статистика -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-5">
+                <div class="card-dark p-4 h-100 shadow-sm">
+                    <h5 class="fw-bold mb-3 text-white">Новый вариант</h5>
+                    <form action="/generate" method="POST">
+                        <div class="mb-4">
+                            <label class="form-label text-muted-custom small">Режим тестирования</label>
+                                <select name="mode" class="form-select bg-dark text-light border-secondary">
+                                    <option value="part1">Только Первая часть (Задания 1–13)</option>
+                                    <option value="full">Полный вариант (Все 20 заданий: Часть 1 + Часть 2)</option>
+                                </select>
+                        </div>
+                        <button type="submit" class="btn btn-neon w-100 py-2">Сгенерировать КИМ</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <div class="row g-3 h-100">
+                    <div class="col-6">
+                        <div class="card-dark p-4 h-100 d-flex flex-column justify-content-center align-items-center text-center">
+                            <h1 class="display-5 fw-bold text-primary mb-0">{{ total_tests }}</h1>
+                            <span class="text-muted-custom small mt-1">Решено вариантов</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card-dark p-4 h-100 d-flex flex-column justify-content-center align-items-center text-center">
+                            <h1 class="display-5 fw-bold {{ 'text-success' if avg_percent >= 70 else 'text-warning' if avg_percent >= 40 else 'text-danger' }} mb-0">{{ avg_percent }}%</h1>
+                            <span class="text-muted-custom small mt-1">Средняя точность</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ФИШКА 2: Векторный Граф Знаний -->
+        <div class="card-dark p-4 mb-4 shadow-sm">
+            <h5 class="fw-bold mb-3 text-white">🌐 Интерактивный Граф Знаний</h5>
+            <p class="text-muted-custom small mb-4">Статус освоения тем на основе истории твоих ответов:</p>
+
+            <div class="row g-3">
+                {% if topic_stats %}
+                    {% for top in topic_stats %}
+                        <div class="col-md-4 col-sm-6">
+                            <div class="topic-node">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="fw-bold text-white fs-6">{{ top.topic }}</span>
+                                    <span class="badge {{ 'bg-success' if top.accuracy >= 75 else 'bg-warning' if top.accuracy >= 50 else 'bg-danger' }}">
+                                        {{ top.accuracy }}%
+                                    </span>
+                                </div>
+                                <div class="progress bg-dark border border-secondary border-opacity-25" style="height: 6px;">
+                                    <div class="progress-bar {{ 'bg-success' if top.accuracy >= 75 else 'bg-warning' if top.accuracy >= 50 else 'bg-danger' }}"
+                                         style="width: {{ top.accuracy }}%;"></div>
+                                </div>
+                                <div class="mt-2 text-muted-custom small">Попыток: {{ top.total_attempts }}</div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-3 text-muted-custom small">
+                        Решите хотя бы один вариант, чтобы граф знаний рассчитал вашу точность по темам!
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Таблица истории -->
+        <div class="card-dark p-4 shadow-sm">
+            <h5 class="fw-bold mb-4 text-white">История прохождения</h5>
+            {% if history %}
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover align-middle m-0" style="--bs-table-bg: transparent; --bs-table-color: #e1e3e8;">
+                        <thead>
+                            <tr class="text-muted-custom border-bottom border-secondary border-opacity-25">
+                                <th class="bg-transparent py-3">Дата</th>
+                                <th class="bg-transparent py-3">Режим</th>
+                                <th class="bg-transparent py-3">Результат</th>
+                                <th class="bg-transparent py-3">Точность</th>
+                                <th class="bg-transparent py-3">Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in history %}
+                                <tr class="border-bottom border-secondary border-opacity-10">
+                                    <td class="bg-transparent py-3 text-white">{{ item.date }}</td>
+                                    <td class="bg-transparent py-3">
+                                        <span class="badge bg-secondary bg-opacity-25 text-light border border-secondary border-opacity-25 px-2 py-1">
+                                            {{ item.mode_name }}
+                                        </span>
+                                    </td>
+                                    <td class="bg-transparent py-3 fw-bold text-white">{{ item.score }} / {{ item.total }} б.</td>
+                                    <td class="bg-transparent py-3">
+                                        <div class="progress bg-dark border border-secondary border-opacity-25" style="height: 8px; width: 110px;">
+                                            <div class="progress-bar {{ 'bg-success' if item.percent >= 70 else 'bg-warning' if item.percent >= 40 else 'bg-danger' }}"
+                                                 style="width: {{ item.percent }}%;"></div>
+                                        </div>
+                                    </td>
+                                    <td class="bg-transparent py-3">
+                                        {% if item.percent >= 70 %}
+                                            <span class="badge badge-success-custom">Отлично</span>
+                                        {% elif item.percent >= 40 %}
+                                            <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">Средне</span>
+                                        {% else %}
+                                            <span class="badge badge-danger-custom">Слабо</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-4 text-muted-custom small">История пока пуста.</div>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- Анимационный Векторный Фон -->
+    <script>
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, particles = [];
+        const particleCount = 65, maxDistance = 140;
+        const mouse = { x: null, y: null, radius: maxDistance };
+
+        function resize() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize);
+        window.addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        window.addEventListener('mouseleave', () => { mouse.x = null; mouse.y = null; });
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width; this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 0.8; this.vy = (Math.random() - 0.5) * 0.8;
+                this.radius = Math.random() * 2 + 1.5;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+            }
+            draw() {
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(148, 163, 184, 0.7)'; ctx.fill();
+            }
+        }
+
+        function init() {
+            resize(); particles = [];
+            for (let i = 0; i < particleCount; i++) particles.push(new Particle());
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update(); particles[i].draw();
+                if (mouse.x !== null && mouse.y !== null) {
+                    let dx = mouse.x - particles[i].x, dy = mouse.y - particles[i].y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < mouse.radius) {
+                        let alpha = 1 - (distance / mouse.radius);
+                        ctx.beginPath(); ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(mouse.x, mouse.y);
+                        ctx.strokeStyle = `rgba(59, 130, 246, ${alpha * 0.8})`;
+                        ctx.lineWidth = 1.2; ctx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+        init(); animate();
+    </script>
+</body>
+</html>

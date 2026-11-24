@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Банк заданий — ЕГЭ Профиль</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #bgCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
+        }
+        .bank-card {
+            background-color: rgba(33, 37, 41, 0.9) !important;
+            backdrop-filter: blur(4px);
+            border: 1px solid #495057;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body class="bg-dark text-light min-vh-100 p-4 position-relative">
+
+    <canvas id="bgCanvas"></canvas>
+
+    <div class="container" style="max-width: 1000px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2>Банк заданий ЕГЭ</h2>
+                <span class="text-muted">Всего задач в базе: <strong>{{ total_count }}</strong></span>
+            </div>
+            <div>
+                <a href="/add_task" class="btn btn-success me-2">+ Добавить задачу</a>
+                <a href="/" class="btn btn-outline-secondary">На главную</a>
+            </div>
+        </div>
+
+        <!-- Фильтр по номерам заданий 1–20 -->
+        <div class="card bg-dark border-secondary p-3 mb-4 shadow" style="background-color: rgba(33, 37, 41, 0.8) !important;">
+            <div class="fw-bold mb-2 text-info">Фильтр по номеру задания:</div>
+            <div class="d-flex flex-wrap gap-1">
+                <a href="/bank" class="btn btn-sm {% if not selected_num %}btn-primary{% else %}btn-outline-secondary{% endif %}">Все</a>
+                {% for n in range(1, 21) %}
+                <a href="/bank?task_number={{ n }}" class="btn btn-sm {% if selected_num == n %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                    №{{ n }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Список заданий из банка -->
+        {% if tasks %}
+            {% for task in tasks %}
+            <div class="card text-light bank-card shadow p-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="text-primary m-0">Задание №{{ task.task_number }} (Часть {{ task.part }}) — {{ task.topic }}</h5>
+                        <form action="/delete_task/{{ task.id }}" method="POST" onsubmit="return confirm('Удалить эту задачу из банка?');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Удалить</button>
+                        </form>
+                    </div>
+
+                    <p class="card-text fs-5" style="white-space: pre-line;">{{ task.text }}</p>
+
+                    {% if task.image_url %}
+                    <div class="my-3 text-center">
+                        <img src="{{ task.image_url }}" alt="" class="img-fluid rounded border border-secondary" style="max-height: 250px;" onerror="this.parentElement.style.display='none';">
+                    </div>
+                    {% endif %}
+
+                    <div class="row mt-3 bg-secondary p-2 rounded mx-0">
+                        <div class="col-md-4 text-warning">
+                            <strong>Ответ:</strong> {{ task.answer }}
+                        </div>
+                        <div class="col-md-8 text-light">
+                            <strong>Решение:</strong> {{ task.explanation or '—' }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-secondary text-center">
+                В банке пока нет задач для выбранного фильтра. Добавьте их через раздел «Добавить задачу».
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Анимированный интерактивный фон (белые точки + белая паутинка) -->
+    <script>
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize);
+        resize();
+
+        const mouse = { x: null, y: null, radius: 140 };
+        window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        window.addEventListener('mouseleave', () => { mouse.x = null; mouse.y = null; });
+
+        class Particle {
+            constructor(id) {
+                this.id = id;
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.radius = Math.random() * 2 + 1.5;
+                this.vx = (Math.random() - 0.5) * 1;
+                this.vy = (Math.random() - 0.5) * 1;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+            }
+            update() {
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.draw();
+            }
+        }
+
+        const count = Math.floor((canvas.width * canvas.height) / 12000);
+        const particles = [];
+        for (let i = 0; i < count; i++) particles.push(new Particle(i));
+
+        function connect() {
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 100) {
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - dist/100) * 0.35})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        ctx.stroke();
+                    }
+                }
+                if (mouse.x !== null && mouse.y !== null) {
+                    const dx = particles[i].x - mouse.x;
+                    const dy = particles[i].y - mouse.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < mouse.radius) {
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - dist/mouse.radius) * 0.7})`;
+                        ctx.lineWidth = 1.2;
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(mouse.x, mouse.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function anim() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => p.update());
+            connect();
+            requestAnimationFrame(anim);
+        }
+        anim();
+    </script>
+</body>
+</html>
