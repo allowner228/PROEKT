@@ -44,7 +44,7 @@
             <div class="fw-bold mb-2 text-info">Фильтр по номеру задания:</div>
             <div class="d-flex flex-wrap gap-1">
                 <a href="/bank" class="btn btn-sm {% if not selected_num %}btn-primary{% else %}btn-outline-secondary{% endif %}">Все</a>
-                {% for n in range(1, 21) %}
+                {% for n in range(1, 20) %}
                 <a href="/bank?task_number={{ n }}" class="btn btn-sm {% if selected_num == n %}btn-primary{% else %}btn-outline-secondary{% endif %}">
                     №{{ n }}
                 </a>
